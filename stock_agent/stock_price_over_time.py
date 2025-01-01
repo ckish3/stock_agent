@@ -1,9 +1,12 @@
-
+"""
+This module contains a class for plotting stock prices over time.
+"""
 
 import matplotlib.pyplot as plt
 import datetime
 import json
 import pandas as pd
+from transformers import tool
 
 class StockPriceOverTime:
     data = None
@@ -43,7 +46,7 @@ class StockPriceOverTime:
 
         StockPriceOverTime.average_df = pd.DataFrame(average_prices)
 
-
+    @tool
     def plot_stock_prices_over_time(symbols: str) -> str:
         """
         Plots the stock prices over time for each symbol in symbols. Symbols is a JSON-formatted string

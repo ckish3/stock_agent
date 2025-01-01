@@ -1,5 +1,9 @@
 
+"""
+This module contains a class for computing stock price changes from a dictionary
+of stock price data.
 
+"""
 from transformers import tool
 import json
 import matplotlib.pyplot as plt
@@ -24,10 +28,10 @@ class PriceChange:
 
     def set_price_df(data: dict):
         """
-        Sets the price_df attribute to the given DataFrame
+        Calculates the increses/decreases in stock prices in data and sets the price_df attribute
 
         Args:
-            price_df: (pd.DataFrame) The DataFrame to set the price_df attribute to
+            data: (dict) The dictionary containing the stock price data
         """
 
         price_df = PriceChange.get_stock_price_changes(data)
@@ -41,8 +45,6 @@ class PriceChange:
         Returns:
             pd.DataFrame: A DataFrame containing the stock prices
         """
-
-
 
         price_data = {
             'symbol': [],
@@ -60,6 +62,23 @@ class PriceChange:
         month_ago = None
         year_ago = None
 
+
+        # Unfortunately, the stocks can have different "as-of" dates, so get the latest one
+        for symbol in all_data:
+
+            data = all_data[symbol]
+        
+            if today is None:
+                today = datetime.date.fromisoformat(data['Meta Data']['3. Last Refreshed'])
+                
+            else:
+                today = max(today, datetime.date.fromisoformat(data['Meta Data']['3. Last Refreshed']))
+
+        yesterday = today - datetime.timedelta(days=1)
+        week_ago = today - datetime.timedelta(days=7)
+        month_ago = today - datetime.timedelta(days=30)
+        year_ago = today - datetime.timedelta(days=365)
+
         for symbol in all_data:
 
             data = all_data[symbol]
@@ -68,13 +87,10 @@ class PriceChange:
                 logger.info(f'Price data received for {symbol}')
                 prices = data['Time Series (Daily)']
 
-            if today is None:
-                today = datetime.date.fromisoformat(data['Meta Data']['3. Last Refreshed'])
-                yesterday = today - datetime.timedelta(days=1)
-                week_ago = today - datetime.timedelta(days=7)
-                month_ago = today - datetime.timedelta(days=30)
-                year_ago = today - datetime.timedelta(days=365)
-
+                
+            if today.isoformat() not in prices:
+                logger.info(f'No data for {today.isoformat()} for {symbol}')
+                continue
 
             last_price = float(prices[today.isoformat()]['4. close'])
             price_data['symbol'].append(symbol)
@@ -107,9 +123,9 @@ class PriceChange:
 
 
     @tool
-    def get_column_name(frequency: str) -> str:
+    def get_column_name_from_time_period(frequency: str) -> str:
         """
-        Returns the column name for a given frequency ("day", "week", "month", or "year")
+        Returns the column name for a given time period of change ("last day", "last week", "last month", or "last year")
 
         Args:
             frequency: (str) The frequency to get the column name for ("day", "week", "month", or "year")
@@ -117,17 +133,17 @@ class PriceChange:
         Returns:
             str: The column name for the given frequency: "day_change", "week_change", "month_change", or "year_change"
         """
-        if 'day' == frequency.to_lower():
+        if 'day' in frequency.lower():
             return 'day_increase'
-        elif 'week' == frequency.to_lower():
+        elif 'week' in frequency.lower():
             return 'week_increase'
-        elif 'month' == frequency.to_lower():
+        elif 'month' in frequency.lower():
             return 'month_increase'
-        elif 'year' == frequency.to_lower():
+        elif 'year' in frequency.lower():
             return 'year_increase'
 
     @tool
-    def get_top_changes(column_name: str, number_of_results: int) -> str:
+    def get_top_increases_in_column_name_time_period(column_name: str, number_of_top_stocks: int) -> str:
         """
         Returns a list of the top stock price changes as a JSON string with the following format:
         {
@@ -138,13 +154,13 @@ class PriceChange:
 
         Args:
             column_name: (str) The column name to sort by ("day_change", "week_change", "month_change", or "year_change")
-            number_of_results: (int) The number of stocks to include in the returned JSON string
+            number_of_top_stocks: (int) The number of stocks to include in the returned JSON string
 
         Returns:
             str: A JSON string containing the top stock price changes
         """
         df = PriceChange.price_df.sort_values(by=column_name, ascending=False)
-        top_changes = df.head(number_of_results)[['symbol', column_name]]
+        top_changes = df.head(number_of_top_stocks)[['symbol', column_name]]
 
         result = {}
 
